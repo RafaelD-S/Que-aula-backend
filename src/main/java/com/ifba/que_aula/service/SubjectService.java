@@ -33,6 +33,7 @@ public class SubjectService {
     public Subject update(String code, Subject subjectDetails) {
         Subject subject = findById(code);
         subject.setName(subjectDetails.getName());
+        subject.setSemester(subjectDetails.getSemester());
         return repository.save(subject);
     }
 

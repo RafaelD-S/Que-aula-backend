@@ -35,7 +35,8 @@ public class SubjectController {
         return service.findAll().stream()
             .map(s -> new SubjectFullDTO(
                 s.getCode(), 
-                s.getName(), 
+                s.getName(),
+                s.getSemester(),
                 s.getSections().stream()
                     .map(section -> new SectionResponseDTO(
                         section.getCode(), 
@@ -49,18 +50,18 @@ public class SubjectController {
     @GetMapping("/{code}")
     public SubjectResponseDTO getById(@PathVariable String code) {
         Subject s = service.findById(code);
-        return new SubjectResponseDTO(s.getCode(), s.getName());
+        return new SubjectResponseDTO(s.getCode(), s.getName(), s.getSemester());
     }
 
     @PostMapping
     public SubjectResponseDTO create(@Valid @RequestBody SubjectDTO dto) {
-        Subject created = service.create(new Subject(dto.getCode(), dto.getName()));
-        return new SubjectResponseDTO(created.getCode(), created.getName());
+        Subject created = service.create(new Subject(dto.getCode(), dto.getName(), dto.getSemester()));
+        return new SubjectResponseDTO(created.getCode(), created.getName(), created.getSemester());
     }
 
     @PutMapping("/{code}")
     public Subject update(@PathVariable String code, @Valid @RequestBody SubjectDTO dto) {
-        Subject subject = new Subject(dto.getCode(), dto.getName());
+        Subject subject = new Subject(dto.getCode(), dto.getName(), dto.getSemester());
         return service.update(code, subject);
     }
 
