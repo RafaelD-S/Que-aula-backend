@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ifba.que_aula.dto.CourseDTO;
@@ -30,23 +31,18 @@ public class CourseController {
     }
 
     @GetMapping
-    public List<CourseResponseDTO> getAll() {
-        return service.findAll().stream()
-            .map(s -> new CourseResponseDTO (
-                s.getIdCourse(),
-                s.getSection().getCode(),
-                s.getSection().getSubject().getCode(),
-                s.getTeacher(),
-                s.getClassroom(),
-                s.getWeekday(),
-                s.getPeriodStart(),
-                s.getPeriodEnd()
-        )).toList();
+    public List<CourseResponseDTO> getAll(@RequestParam(required = false) String expand) {
+        return service.findAll(expand).stream()
+            .map(this::toDTO)
+            .toList();
     }
 
     @GetMapping("/{id}")
-    public Course getById(@PathVariable Long id) {
-        return service.findById(id);
+    public CourseResponseDTO getById(
+            @PathVariable Long id,
+            @RequestParam(required = false) String expand
+    ) {
+        return toDTO(service.findById(id, expand));
     }
 
     @PostMapping
@@ -81,5 +77,23 @@ public class CourseController {
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
         service.delete(id);
+    }
+
+    private CourseResponseDTO toDTO(Course course) {
+        String sectionCode = course.getSection() != null ? course.getSection().getCode() : null;
+        String subjectCode = (course.getSection() != null && course.getSection().getSubject() != null)
+                ? course.getSection().getSubject().getCode()
+                : null;
+
+        return new CourseResponseDTO(
+                course.getIdCourse(),
+                sectionCode,
+                subjectCode,
+                course.getTeacher(),
+                course.getClassroom(),
+                course.getWeekday(),
+                course.getPeriodStart(),
+                course.getPeriodEnd()
+        );
     }
 }

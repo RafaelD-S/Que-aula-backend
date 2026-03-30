@@ -10,6 +10,7 @@ import com.ifba.que_aula.models.entities.SectionId;
 import com.ifba.que_aula.models.entities.Subject;
 import com.ifba.que_aula.repository.SectionRepository;
 import com.ifba.que_aula.repository.SubjectRepository;
+import com.ifba.que_aula.utils.ExpandField;
 
 @Service
 public class SectionService {
@@ -26,12 +27,29 @@ public class SectionService {
         return sectionRepository.findAll();
     }
 
-        public Section findById(String code, String subjectCode) {
+    public Section findById(String code, String subjectCode) {
         SectionId id = new SectionId(code, subjectCode);
         return sectionRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException(
                 "Section não encontrada: " + code + " / " + subjectCode
             ));
+    }
+
+    public List<Section> findAll(String expand) {
+        if (ExpandField.has(expand, ExpandField.COURSES)) {
+            return sectionRepository.findAllWithCourses();
+        }
+        return sectionRepository.findAll(); // mínimo
+    }
+
+    public Section findBySubjectAndCode(String subjectCode, String code, String expand) {
+        if (ExpandField.has(expand, ExpandField.COURSES)) {
+            return sectionRepository.findBySubjectCodeAndCodeWithCourses(subjectCode, code)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                    "Section não encontrada: " + code + " / " + subjectCode
+                ));
+        }
+        return findById(code, subjectCode);
     }
 
     public Section create(Section section, String subjectCode) {

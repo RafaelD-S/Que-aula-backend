@@ -10,6 +10,7 @@ import com.ifba.que_aula.models.entities.Section;
 import com.ifba.que_aula.models.entities.SectionId;
 import com.ifba.que_aula.repository.CourseRepository;
 import com.ifba.que_aula.repository.SectionRepository;
+import com.ifba.que_aula.utils.ExpandField;
 
 @Service
 public class CourseService {
@@ -31,7 +32,23 @@ public class CourseService {
                 .orElseThrow(() -> new ResourceNotFoundException("Course não encontrado: " + id));
     }
 
-        public Course create(Course course, String sectionCode, String subjectCode) {
+    public List<Course> findAll(String expand) {
+        if (ExpandField.has(expand, ExpandField.SECTION) || ExpandField.has(expand, ExpandField.SUBJECT)) {
+            return courseRepository.findAllWithSectionAndSubject();
+        }
+        return courseRepository.findAll(); 
+    }
+
+    public Course findById(Long id, String expand) {
+        if (ExpandField.has(expand, ExpandField.SECTION) || ExpandField.has(expand, ExpandField.SUBJECT)) {
+            return courseRepository.findByIdWithSectionAndSubject(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Course não encontrado: " + id));
+        }
+        return courseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Course não encontrado: " + id));
+    }
+
+    public Course create(Course course, String sectionCode, String subjectCode) {
         SectionId id = new SectionId(sectionCode, subjectCode);
         Section section = sectionRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException(
@@ -41,7 +58,7 @@ public class CourseService {
         return courseRepository.save(course);
     }
 
-        public Course update(Long id, Course courseDetails, String sectionCode, String subjectCode) {
+    public Course update(Long id, Course courseDetails, String sectionCode, String subjectCode) {
         Course course = findById(id);
         SectionId sectionId = new SectionId(sectionCode, subjectCode);
         Section section = sectionRepository.findById(sectionId)
