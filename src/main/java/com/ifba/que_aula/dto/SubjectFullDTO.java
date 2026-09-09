@@ -6,9 +6,9 @@ public class SubjectFullDTO {
     private final String code;
     private final String name;
     private final int semester;
-    private final List<SectionResponseDTO> sections;
+    private final List<SectionFullDTO> sections;
 
-    public SubjectFullDTO(String code, String name, int semester, List<SectionResponseDTO> sections) {
+    public SubjectFullDTO(String code, String name, int semester, List<SectionFullDTO> sections) {
         this.code = code;
         this.name = name;
         this.semester = semester;
@@ -18,5 +18,5 @@ public class SubjectFullDTO {
     public String getCode() { return code; }
     public String getName() { return name; }
     public int getSemester() { return semester; }
-    public List<SectionResponseDTO> getSections() { return sections; }
+    public List<SectionFullDTO> getSections() { return sections; }
 }

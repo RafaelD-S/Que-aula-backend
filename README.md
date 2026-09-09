@@ -1,227 +1,503 @@
-# Que Aula — Backend (Spring Boot)
+# Que Aula API - Guia de Integracao para Front-end
 
-## Visão geral
+Este README documenta os endpoints disponiveis e os detalhes necessarios para conectar uma aplicacao front-end a esta API.
 
-API REST para gerenciamento de disciplinas, turmas (sections) e aulas (courses). O projeto usa Spring Boot, JPA e validações com Bean Validation.
+## 1. Visao geral
 
-## Stack
+- Stack: Spring Boot 3 + Java 17 + JPA
+- Base path da API: `/api`
+- Formato: JSON
+- Autenticacao: nenhuma (nao ha JWT/OAuth/session)
 
-- Java 17
-- Spring Boot 3.5.7
-- Spring Web + Spring Data JPA + Validation
-- H2 (dev) e PostgreSQL (prod)
+Entidades principais:
+- Subject (disciplina)
+- Section (turma, identificada por chave composta)
+- Course (aula/horario vinculado a uma turma)
 
-## Estrutura de domínio
+## 2. URL base por ambiente
 
-- **Subject** (disciplina)
-  - `code` (PK, String)
-  - `name` (String)
-  - 1:N com `Section`
-- **Section** (turma)
-  - `code` + `subjectCode` (PK composta)
-  - `isStrike` (Boolean)
-  - `subject` (N:1)
-  - 1:N com `Course`
-- **Course** (aula)
-  - `idCourse` (PK, Long)
-  - `section` (N:1)
-  - `teacher`, `classroom`, `weekday`, `periodStart`, `periodEnd`
+A API usa profile Spring:
+- `dev` (padrao): porta `8081`
+- `prod`: porta `8080`
 
-## Perfis e configuração
+Configuracao observada:
+- `src/main/resources/application.properties` define profile ativo em `dev` por padrao
+- `src/main/resources/application-dev.properties` usa `server.port=8081`
+- `src/main/resources/application-prod.properties` usa `server.port=8080`
 
-O perfil ativo padrão é `dev`.
+Exemplos de base URL:
+- Dev local: `http://localhost:8081/api`
+- Prod local/container: `http://localhost:8080/api`
 
-### Dev (H2 em memória)
+## 3. Como subir o backend
 
-- Porta: **8081**
-- H2 console habilitado
-- `spring.jpa.hibernate.ddl-auto=update`
+Com Maven Wrapper:
 
-### Prod (PostgreSQL)
+```bash
+./mvnw spring-boot:run
+```
 
-- Porta: **8080**
-- Usa PostgreSQL
-- `spring.jpa.hibernate.ddl-auto=update`
+Com profile explicito:
 
-> Recomenda-se mover credenciais para variáveis de ambiente em produção.
+```bash
+SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run
+SPRING_PROFILES_ACTIVE=prod ./mvnw spring-boot:run
+```
 
-## Como iniciar o projeto
+## 4. CORS e conectividade do front-end
 
-### Pré-requisitos
+Nao existe configuracao de CORS explicita no codigo.
 
-- Java 17
-- Maven (ou usar o wrapper `mvnw`)
+Implicacoes:
+- Se front e API rodarem em origens diferentes (ex.: `localhost:5173` e `localhost:8081`), o browser pode bloquear requisicoes.
+- Para desenvolvimento local, o ideal e adicionar CORS no backend ou usar proxy no dev server do front-end.
 
-### Subir em desenvolvimento (profile dev)
+## 5. Parametro `expand`
 
-- Usando Maven Wrapper:
-  - `mvnw spring-boot:run`
-- A API ficará disponível em: `http://localhost:8081`
+Alguns GETs aceitam query param `expand` para trazer relacoes.
 
-### Build e execução
+Formato:
+- `?expand=sections`
+- `?expand=sections,courses`
+- `?expand=courses`
 
-- Build do JAR:
-  - `mvnw clean package`
-- Executar o JAR:
-  - `java -jar target/que-aula-0.0.1-SNAPSHOT.jar`
+Regras importantes:
+- Case-insensitive (`SECTIONS`, `sections`, etc.)
+- Aceita aliases singular/plural em alguns casos:
+  - `section` <-> `sections`
+  - `course` -> `courses`
+  - `subjects` -> `subject`
 
-## Base URL
+## 6. Endpoints
 
-- `http://localhost:8081/api` (dev)
-- `http://localhost:8080/api` (prod)
+## 6.1 Subjects
 
-## Endpoints
+### GET `/subjects`
+Retorna lista de disciplinas.
 
-### Subjects
+Query params:
+- `expand` (opcional)
+  - sem `expand`: lista de `SubjectResponseDTO`
+  - `expand=sections`: lista de `SubjectFullDTO` com sections
+  - `expand=sections,courses`: lista de `SubjectFullDTO` com sections e courses em cada section
 
-- `GET /api/subjects` → lista com seções
-- `GET /api/subjects/{code}` → detalhes da disciplina
-- `POST /api/subjects` → cria disciplina
-- `PUT /api/subjects/{code}` → atualiza disciplina
-- `DELETE /api/subjects/{code}` → remove disciplina
+Resposta sem expand (200):
 
-### Sections
+```json
+[
+  {
+    "code": "INF001",
+    "name": "Algoritmos",
+    "semester": 1
+  }
+]
+```
 
-- `GET /api/sections` → lista com cursos (aulas)
-- `GET /api/sections/{subjectCode}/{code}` → detalhes da turma
-- `POST /api/sections` → cria turma
-- `PUT /api/sections/{subjectCode}/{code}` → atualiza turma
-- `DELETE /api/sections/{subjectCode}/{code}` → remove turma
+Resposta com `expand=sections,courses` (200):
 
-### Courses
+```json
+[
+  {
+    "code": "INF001",
+    "name": "Algoritmos",
+    "semester": 1,
+    "sections": [
+      {
+        "code": "A",
+        "isStrike": false,
+        "subjectCode": "INF001",
+        "courses": [
+          {
+            "idCourse": 1,
+            "sectionCode": "A",
+            "subjectCode": "INF001",
+            "teacher": "Maria",
+            "classroom": "Lab 1",
+            "weekday": 1,
+            "periodStart": 0,
+            "periodEnd": 1
+          }
+        ]
+      }
+    ]
+  }
+]
+```
 
-- `GET /api/courses` → lista de aulas
-- `GET /api/courses/{id}` → detalhes da aula
-- `POST /api/courses` → cria aula
-- `PUT /api/courses/{id}` → atualiza aula
-- `DELETE /api/courses/{id}` → remove aula
+### GET `/subjects/{code}`
+Busca disciplina por codigo.
 
-## DTOs e payloads
+Path params:
+- `code` (string)
 
-### SubjectDTO (request)
+Query params:
+- `expand` (opcional), mesmas regras do endpoint de listagem
+
+Resposta:
+- sem `expand`: `SubjectResponseDTO`
+- com `expand=sections` ou `expand=sections,courses`: `SubjectFullDTO`
+
+### POST `/subjects`
+Cria disciplina.
+
+Body (`SubjectDTO`):
 
 ```json
 {
-  "code": "INF101",
-  "name": "Programação I"
+  "code": "INF001",
+  "name": "Algoritmos",
+  "semester": 1
 }
 ```
 
-### SubjectResponseDTO (response)
+Validacoes:
+- `code`: obrigatorio, nao vazio
+- `name`: obrigatorio, nao vazio
+- `semester`: obrigatorio, inteiro entre 0 e 6
+
+Resposta (200): `SubjectResponseDTO`
+
+### PUT `/subjects/{code}`
+Atualiza disciplina existente.
+
+Body: mesmo formato do POST
+
+Resposta (200): entidade `Subject` (nao DTO)
+
+Observacao importante para front-end:
+- O contrato de resposta do PUT e diferente do GET/POST (retorna entidade JPA, nao `SubjectResponseDTO`).
+
+### DELETE `/subjects/{code}`
+Remove disciplina.
+
+Resposta: `200` com corpo vazio.
+
+---
+
+## 6.2 Sections
+
+A identificacao de Section usa chave composta:
+- `subjectCode` + `code`
+
+### GET `/sections`
+Lista turmas.
+
+Query params:
+- `expand` (opcional)
+  - sem `expand`: `SectionResponseDTO[]`
+  - `expand=courses`: `SectionFullDTO[]`
+
+Resposta sem expand (200):
 
 ```json
-{
-  "code": "INF101",
-  "name": "Programação I"
-}
+[
+  {
+    "code": "A",
+    "isStrike": false,
+    "subjectCode": "INF001"
+  }
+]
 ```
 
-### SubjectFullDTO (response)
+Resposta com `expand=courses` (200):
 
 ```json
-{
-  "code": "INF101",
-  "name": "Programação I",
-  "sections": [
-    {
-      "code": "A",
-      "isStrike": false,
-      "subjectCode": "INF101"
-    }
-  ]
-}
+[
+  {
+    "code": "A",
+    "isStrike": false,
+    "subjectCode": "INF001",
+    "courses": [
+      {
+        "idCourse": 1,
+        "sectionCode": "A",
+        "subjectCode": "INF001",
+        "teacher": "Maria",
+        "classroom": "Lab 1",
+        "weekday": 1,
+        "periodStart": 0,
+        "periodEnd": 1
+      }
+    ]
+  }
+]
 ```
 
-### SectionDTO (request)
+### GET `/sections/{subjectCode}/{code}`
+Busca turma por chave composta.
+
+Path params:
+- `subjectCode` (string)
+- `code` (string)
+
+Query params:
+- `expand` (opcional)
+  - sem expand: `SectionResponseDTO`
+  - `expand=courses`: `SectionFullDTO`
+
+### POST `/sections`
+Cria turma.
+
+Body (`SectionDTO`):
 
 ```json
 {
   "code": "A",
   "isStrike": false,
-  "subjectCode": "INF101"
+  "subjectCode": "INF001"
 }
 ```
 
-### SectionResponseDTO (response)
+Validacoes:
+- `code`: obrigatorio, nao vazio
+- `isStrike`: obrigatorio (boolean)
+- `subjectCode`: obrigatorio, nao vazio
+
+Resposta (200): `SectionResponseDTO`
+
+### PUT `/sections/{subjectCode}/{code}`
+Atualiza turma.
+
+Body: mesmo formato do POST
+
+Resposta (200): entidade `Section` (nao DTO)
+
+Observacao importante para front-end:
+- Assim como em Subject, o PUT nao retorna o mesmo formato dos endpoints de leitura.
+
+### DELETE `/sections/{subjectCode}/{code}`
+Remove turma.
+
+Resposta: `200` com corpo vazio.
+
+---
+
+## 6.3 Courses
+
+### GET `/courses`
+Lista cursos/aulas.
+
+Query params:
+- `expand` (opcional): `section` ou `subject`
+
+Observacao:
+- Mesmo com `expand`, o retorno continua `CourseResponseDTO[]` com campos planos (`sectionCode`, `subjectCode`).
+- O `expand` impacta carregamento interno no backend, nao o shape final desse endpoint.
+
+Resposta (200):
 
 ```json
-{
-  "code": "A",
-  "isStrike": false,
-  "subjectCode": "INF101"
-}
+[
+  {
+    "idCourse": 1,
+    "sectionCode": "A",
+    "subjectCode": "INF001",
+    "teacher": "Maria",
+    "classroom": "Lab 1",
+    "weekday": 1,
+    "periodStart": 0,
+    "periodEnd": 1
+  }
+]
 ```
 
-### SectionFullDTO (response)
+### GET `/courses/{id}`
+Busca course por id.
 
-```json
-{
-  "code": "A",
-  "isStrike": false,
-  "subjectCode": "INF101",
-  "courses": [
-    {
-      "idCourse": 1,
-      "sectionCode": "A",
-      "subjectCode": "INF101",
-      "teacher": "Maria",
-      "classroom": "Lab 1",
-      "weekday": 1,
-      "periodStart": 2,
-      "periodEnd": 3
-    }
-  ]
-}
-```
+Path params:
+- `id` (number)
 
-### CourseDTO (request)
+Query params:
+- `expand` (opcional): `section` ou `subject`
+
+Resposta: `CourseResponseDTO`
+
+### POST `/courses`
+Cria course.
+
+Body (`CourseDTO`):
 
 ```json
 {
   "sectionCode": "A",
-  "subjectCode": "INF101",
+  "subjectCode": "INF001",
   "teacher": "Maria",
   "classroom": "Lab 1",
   "weekday": 1,
-  "periodStart": 2,
-  "periodEnd": 3
+  "periodStart": 0,
+  "periodEnd": 1
 }
 ```
 
-### CourseResponseDTO (response)
+Validacoes:
+- `sectionCode`: obrigatorio, nao vazio
+- `subjectCode`: obrigatorio, nao vazio
+- `teacher`: obrigatorio, nao vazio
+- `classroom`: obrigatorio, nao vazio
+- `weekday`: obrigatorio, inteiro entre 0 e 6
+- `periodStart`: obrigatorio, inteiro entre 0 e 5
+- `periodEnd`: obrigatorio, inteiro entre 0 e 5
+
+Resposta (200): entidade `Course` (nao DTO)
+
+### PUT `/courses/{id}`
+Atualiza course.
+
+Path params:
+- `id` (number)
+
+Body: mesmo formato do POST
+
+Resposta (200): entidade `Course` (nao DTO)
+
+### DELETE `/courses/{id}`
+Remove course.
+
+Resposta: `200` com corpo vazio.
+
+## 7. Resumo de contratos de resposta (importante para front)
+
+A API tem contratos mistos entre DTO e entidade JPA.
+
+- GETs retornam DTOs estaveis para leitura.
+- POST de Subject/Section retorna DTO.
+- POST/PUT de Course retorna entidade.
+- PUT de Subject/Section retorna entidade.
+
+Recomendacao para front-end:
+- Sempre tipar respostas de escrita (POST/PUT) separadamente das respostas de leitura.
+- Em fluxos criticos, apos criar/atualizar, fazer novo GET para normalizar dados na UI.
+
+## 8. Erros HTTP e tratamento no front-end
+
+Casos observados no codigo:
+- Falha de validacao (`@Valid`): tende a retornar `400 Bad Request`
+- `ResourceNotFoundException` e lancada para recursos nao encontrados
+
+Observacao importante:
+- Nao existe `@ControllerAdvice`/`@ExceptionHandler` customizado no projeto.
+- Sem mapeamento explicito, `ResourceNotFoundException` pode responder como `500 Internal Server Error` em vez de `404`.
+
+Formato de erro padrao Spring Boot (exemplo):
 
 ```json
 {
-  "idCourse": 1,
-  "sectionCode": "A",
-  "subjectCode": "INF101",
-  "teacher": "Maria",
-  "classroom": "Lab 1",
-  "weekday": 1,
-  "periodStart": 2,
-  "periodEnd": 3
+  "timestamp": "2026-04-01T12:00:00.000+00:00",
+  "status": 500,
+  "error": "Internal Server Error",
+  "path": "/api/subjects/INF999"
 }
 ```
 
-## Regras de validação
+Recomendacao para front-end:
+- Tratar pelo menos `400`, `404`, `409`, `500` com mensagens amigaveis.
+- Nao assumir shape fixo de erro ate existir handler global padronizado.
 
-- Todos os campos de DTO marcados com `@NotBlank`/`@NotNull` são obrigatórios.
-- `weekday` deve estar entre 0 e 6.
-- `periodStart` e `periodEnd` devem estar entre 0 e 5.
+## 9. Tipagem sugerida no front-end (TypeScript)
 
-## Erros comuns
+```ts
+export type SubjectResponse = {
+  code: string;
+  name: string;
+  semester: number;
+};
 
-- 404 quando `Subject`, `Section` ou `Course` não existe.
-- 400 quando payload viola validações.
+export type CourseResponse = {
+  idCourse: number;
+  sectionCode: string;
+  subjectCode: string;
+  teacher: string;
+  classroom: string;
+  weekday: number;
+  periodStart: number;
+  periodEnd: number;
+};
 
-## Conectar com o front-end
+export type SectionResponse = {
+  code: string;
+  isStrike: boolean;
+  subjectCode: string;
+};
 
-1. Use a base URL de dev: `http://localhost:8081/api`.
-2. Configure o front-end com uma variável de ambiente, por exemplo:
-   - `VITE_API_URL=http://localhost:8081/api`
-3. Exemplos de chamadas:
-   - `GET /subjects`
-   - `GET /sections`
-   - `GET /courses`
+export type SectionFull = SectionResponse & {
+  courses: CourseResponse[];
+};
 
-> Observação: não há configuração explícita de CORS no backend. Se o front-end estiver em outra origem, adicione CORS conforme a necessidade.
+export type SubjectFull = SubjectResponse & {
+  sections: SectionFull[];
+};
+```
+
+## 10. Exemplo de cliente HTTP para front-end
+
+### Axios
+
+```ts
+import axios from "axios";
+
+export const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8081/api",
+  headers: {
+    "Content-Type": "application/json"
+  }
+});
+
+export async function listSubjects(expand?: string) {
+  const { data } = await api.get("/subjects", { params: { expand } });
+  return data;
+}
+
+export async function createCourse(payload: {
+  sectionCode: string;
+  subjectCode: string;
+  teacher: string;
+  classroom: string;
+  weekday: number;
+  periodStart: number;
+  periodEnd: number;
+}) {
+  const { data } = await api.post("/courses", payload);
+  return data;
+}
+```
+
+### Fetch
+
+```ts
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8081/api";
+
+export async function getSectionsWithCourses() {
+  const res = await fetch(`${API_BASE}/sections?expand=courses`);
+
+  if (!res.ok) {
+    throw new Error(`Erro ao buscar sections: ${res.status}`);
+  }
+
+  return res.json();
+}
+```
+
+## 11. Checklist rapido para conectar o front
+
+1. Definir `VITE_API_BASE_URL` apontando para `/api`.
+2. Conferir se backend esta no profile/porta esperados (`8081` dev, `8080` prod).
+3. Validar CORS ou configurar proxy de desenvolvimento.
+4. Implementar tratamento de erro por status HTTP.
+5. Tipar separadamente respostas de GET e POST/PUT.
+6. Usar `expand` apenas quando precisar reduzir round-trips para dados relacionais.
+
+## 12. Referencias no codigo
+
+- Controllers:
+  - `src/main/java/com/ifba/que_aula/controller/SubjectController.java`
+  - `src/main/java/com/ifba/que_aula/controller/SectionController.java`
+  - `src/main/java/com/ifba/que_aula/controller/CourseController.java`
+- DTOs:
+  - `src/main/java/com/ifba/que_aula/dto/`
+- Servicos e regras de `expand`:
+  - `src/main/java/com/ifba/que_aula/service/`
+  - `src/main/java/com/ifba/que_aula/utils/ExpandField.java`
+- Configuracoes de ambiente:
+  - `src/main/resources/application.properties`
+  - `src/main/resources/application-dev.properties`
+  - `src/main/resources/application-prod.properties`
