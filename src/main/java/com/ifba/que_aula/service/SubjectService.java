@@ -40,6 +40,42 @@ public class SubjectService {
         return repository.findAll(); // mínimo
     }
 
+    public List<Subject> findAllBySemester(
+            Integer semester,
+            String expand
+    ) {
+        boolean includeSections
+                = ExpandField.has(expand, ExpandField.SECTIONS);
+
+        boolean includeCourses
+                = ExpandField.has(expand, ExpandField.COURSES);
+
+        if (includeSections && includeCourses) {
+            List<Subject> subjects
+                    = repository.findAllBySemesterWithSections(semester);
+
+            subjects.forEach(subject
+                    -> subject.setSections(
+                            sectionRepository
+                                    .findAllBySubjectCodeWithCourses(
+                                            subject.getCode()
+                                    )
+                    )
+            );
+
+            return subjects;
+        }
+
+        if (includeSections) {
+            return repository.findAllBySemesterWithSections(semester);
+        }
+
+        return repository.findAll()
+                .stream()
+                .filter(subject -> subject.getSemester() == semester)
+                .toList();
+    }
+
     public Subject findById(String code) {
         return repository.findById(code)
                 .orElseThrow(() -> new ResourceNotFoundException("Subject não encontrado: " + code));
@@ -49,16 +85,16 @@ public class SubjectService {
         if (ExpandField.has(expand, ExpandField.SECTIONS)
                 && ExpandField.has(expand, ExpandField.COURSES)) {
             Subject subject = repository.findByCodeWithSections(code)
-                .orElseThrow(() -> new ResourceNotFoundException("Subject não encontrado: " + code));
+                    .orElseThrow(() -> new ResourceNotFoundException("Subject não encontrado: " + code));
             subject.setSections(sectionRepository.findAllBySubjectCodeWithCourses(code));
             return subject;
         }
         if (ExpandField.has(expand, ExpandField.SECTIONS)) {
             return repository.findByCodeWithSections(code)
-                .orElseThrow(() -> new ResourceNotFoundException("Subject não encontrado: " + code));
+                    .orElseThrow(() -> new ResourceNotFoundException("Subject não encontrado: " + code));
         }
         return repository.findById(code)
-            .orElseThrow(() -> new ResourceNotFoundException("Subject não encontrado: " + code));
+                .orElseThrow(() -> new ResourceNotFoundException("Subject não encontrado: " + code));
     }
 
     public Subject create(Subject subject) {

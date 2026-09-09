@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import com.ifba.que_aula.models.entities.Subject;
 
 public interface SubjectRepository extends JpaRepository<Subject, String> {
+
     @EntityGraph(attributePaths = {"sections"})
     @Query("SELECT s FROM Subject s")
     List<Subject> findAllWithSections();
@@ -26,4 +27,16 @@ public interface SubjectRepository extends JpaRepository<Subject, String> {
     @EntityGraph(attributePaths = {"sections", "sections.courses"})
     @Query("SELECT s FROM Subject s WHERE s.code = :code")
     Optional<Subject> findByCodeWithSectionsAndCourses(@Param("code") String code);
+
+    @EntityGraph(attributePaths = {"sections"})
+    @Query("SELECT s FROM Subject s WHERE s.semester = :semester")
+    List<Subject> findAllBySemesterWithSections(
+            @Param("semester") Integer semester
+    );
+
+    @EntityGraph(attributePaths = {"sections", "sections.courses"})
+    @Query("SELECT s FROM Subject s WHERE s.semester = :semester")
+    List<Subject> findAllBySemesterWithSectionsAndCourses(
+            @Param("semester") Integer semester
+    );
 }
